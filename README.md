@@ -155,46 +155,6 @@ GitHub Actions runs this pipeline on every PR to `main`. Any PR that drops faith
 
 ---
 
-## Deploying to Render
-
-### 1. Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/finscope-ai
-git push -u origin main
-```
-
-### 2. Add GitHub secret
-
-In your repo: **Settings → Secrets and variables → Actions → New repository secret**
-- Name: `GROQ_API_KEY`
-- Value: your Groq API key
-
-### 3. Deploy on Render
-
-1. Go to [render.com](https://render.com) → **New → Web Service**
-2. Connect your GitHub repo
-3. Set:
-   - **Environment**: Python
-   - **Build command**: `pip install -r requirements.txt`
-   - **Start command**: `uvicorn src.api.main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variable `GROQ_API_KEY` in Render's dashboard
-5. Click **Deploy**
-
-> **Note**: Pre-build the indexes locally and commit the `indexes/` folder, or set the build command to `pip install -r requirements.txt && python -m src.ingestion.loader`. The free tier has limited RAM — the embedding model (~90 MB) and FAISS index load fine on 512 MB.
-
-### 4. Health check
-
-```bash
-curl https://your-service.onrender.com/api/v1/health
-# {"status":"healthy","indexes_loaded":true,"model":"llama-3.3-70b-versatile"}
-```
-
----
-
 ## API Reference
 
 ### `POST /api/v1/query`
