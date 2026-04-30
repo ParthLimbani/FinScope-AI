@@ -1,0 +1,92 @@
+[
+  {
+    "question": "What primary risks does the RBI Financial Stability Report identify for India's banking system?",
+    "ground_truth": "The RBI Financial Stability Report identifies key risks including elevated global uncertainty, geopolitical tensions, rising non-performing assets in certain lending segments, and vulnerabilities from high household debt levels and interconnectedness of financial institutions.",
+    "source": "rbi",
+    "difficulty": "easy"
+  },
+  {
+    "question": "How is RBI implementing its retail Central Bank Digital Currency pilot?",
+    "ground_truth": "RBI is implementing the retail Digital Rupee in a phased pilot through select commercial banks, enabling peer-to-peer and peer-to-merchant transactions via digital wallets, with focus on interoperability and gradual expansion of participating banks and user groups.",
+    "source": "rbi",
+    "difficulty": "easy"
+  },
+  {
+    "question": "What macroprudential measures does RBI propose to address systemic risks in the financial sector?",
+    "ground_truth": "RBI proposes macroprudential measures including counter-cyclical capital buffers, enhanced stress testing for banks, sector-specific risk weights for high-growth lending segments, and stronger supervisory frameworks for systemically important financial institutions.",
+    "source": "rbi",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What role does RBI see for artificial intelligence in the Indian financial ecosystem?",
+    "ground_truth": "RBI highlights the growing role of artificial intelligence in credit underwriting, fraud detection, and customer service while emphasizing the need for governance frameworks, explainability requirements, and risk management protocols to address potential biases and systemic risks.",
+    "source": "rbi",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What regulatory framework does BIS recommend for managing crypto asset risks?",
+    "ground_truth": "BIS recommends that crypto assets be subject to equivalent regulatory treatment as traditional financial instruments under the principle of same activity, same risk, same regulation, including prudential capital requirements for bank exposures, mandatory disclosure standards, and cross-border supervisory coordination.",
+    "source": "bis",
+    "difficulty": "easy"
+  },
+  {
+    "question": "How does BIS assess the implications of open banking for financial stability?",
+    "ground_truth": "BIS assesses that open banking creates concentration risk through third-party technology providers, increases data privacy and cybersecurity exposure, and can amplify systemic risks through interconnected API ecosystems, while also improving competition and financial inclusion outcomes.",
+    "source": "bis",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What principles does BIS outline for central bank digital currency design?",
+    "ground_truth": "BIS outlines foundational CBDC design principles including coexistence with existing payment systems, preservation of monetary sovereignty, financial inclusion, privacy protection for users, resilience and availability, and support for cross-border payment efficiency through interoperable multi-CBDC platforms.",
+    "source": "bis",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What systemic risks from fintech does BIS identify for emerging market economies?",
+    "ground_truth": "BIS identifies that fintech growth in emerging markets can introduce operational risks from digital infrastructure dependencies, increase exposure to cybersecurity threats, create regulatory arbitrage opportunities, and accelerate financial disintermediation that challenges traditional banking stability.",
+    "source": "bis",
+    "difficulty": "hard"
+  },
+  {
+    "question": "What oversight framework does SEBI propose for algorithmic and high-frequency trading?",
+    "ground_truth": "SEBI proposes that algorithmic trading systems require prior regulatory approval, mandatory audit trails, and kill switches to halt trading immediately. The framework includes order-to-trade ratio limits, co-location guidelines, latency controls, and certification requirements for algorithmic traders.",
+    "source": "sebi",
+    "difficulty": "easy"
+  },
+  {
+    "question": "How does SEBI plan to enhance investor protection for retail participants in capital markets?",
+    "ground_truth": "SEBI's investor protection measures include mandatory risk disclosure requirements, suitability norms for complex financial products, the Investor Protection and Education Fund for compensating aggrieved investors, simplified grievance redressal mechanisms, and stricter standards for investment advisors.",
+    "source": "sebi",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is SEBI's approach to adopting regulatory technology for market surveillance?",
+    "ground_truth": "SEBI is deploying regulatory technology including advanced analytics, natural language processing for disclosure monitoring, and machine learning-based surveillance systems to detect market manipulation, insider trading patterns, and systemic anomalies in real-time across market segments.",
+    "source": "sebi",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What machine learning approaches are most effective for detecting fraudulent financial transactions?",
+    "ground_truth": "Ensemble methods such as gradient boosting, random forests, and neural networks are effective for financial fraud detection. Key challenges include severe class imbalance requiring sampling strategies, real-time inference requirements, concept drift adaptation, and the need for model explainability to satisfy regulatory compliance.",
+    "source": "arxiv",
+    "difficulty": "medium"
+  },
+  {
+    "question": "How do large language models improve financial document analysis and information extraction?",
+    "ground_truth": "Large language models improve financial document analysis through earnings report summarization, regulatory filing extraction, and financial question answering. Retrieval-augmented generation architectures enhance factual accuracy by grounding LLM responses in specific document contexts, reducing hallucination risk in high-stakes financial applications.",
+    "source": "arxiv",
+    "difficulty": "medium"
+  },
+  {
+    "question": "How do RBI's CBDC plans align with and differ from BIS recommendations for central bank digital currencies?",
+    "ground_truth": "RBI's Digital Rupee pilots align with BIS principles of coexistence with existing payment systems and financial stability preservation. RBI emphasises India-specific priorities such as financial inclusion for unbanked populations and offline transaction capability, which complement the BIS-endorsed two-tier distribution model through commercial banks recommended for retail CBDCs.",
+    "source": "rbi+bis",
+    "difficulty": "hard"
+  },
+  {
+    "question": "What does SEBI specify about penalties for unlicensed cryptocurrency exchange operators in India?",
+    "ground_truth": "The documents do not contain specific information about SEBI-imposed penalties for cryptocurrency exchange operators. Cryptocurrency exchange licensing and enforcement in India has primarily been addressed through separate legislative frameworks and RBI guidance rather than through SEBI's securities market regulations covered in the available documents.",
+    "source": "sebi",
+    "difficulty": "hard"
+  }
+]

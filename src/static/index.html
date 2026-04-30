@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinScope AI — Regulatory Research Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── RESET & VARIABLES ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0f1e;
+      --surface:     #111827;
+      --surface-2:   #1a2236;
+      --surface-3:   #0d1424;
+      --accent:      #3b82f6;
+      --accent-h:    #2563eb;
+      --accent-dim:  rgba(59,130,246,.14);
+      --accent-ring: rgba(59,130,246,.25);
+      --success:     #10b981;
+      --warning:     #f59e0b;
+      --error:       #ef4444;
+      --text:        #f1f5f9;
+      --muted:       #94a3b8;
+      --faint:       #475569;
+      --border:      #1e2d4a;
+      --border-l:    #243752;
+      /* source palette */
+      --arxiv:  #8b5cf6;
+      --rbi:    #f59e0b;
+      --bis:    #3b82f6;
+      --sebi:   #10b981;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SCROLLBAR ──────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar          { width: 5px; }
+    ::-webkit-scrollbar-track    { background: transparent; }
+    ::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-l); }
+
+    /* ── HEADER ─────────────────────────────────────────────────────────── */
+    .header {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px 12px;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      flex-shrink: 0;
+      background: var(--accent-dim);
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wordmark { line-height: 1.2; }
+
+    .logo-name {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: var(--text);
+    }
+
+    .logo-name em { color: var(--accent); font-style: normal; }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* status pill */
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 11.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .s-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--faint);
+      transition: background .3s, box-shadow .3s;
+    }
+    .s-dot.on  { background: var(--success); animation: sPulse 2.5s ease-in-out infinite; }
+    .s-dot.off { background: var(--error); }
+
+    @keyframes sPulse {
+      0%,100% { box-shadow: 0 0 0 2px rgba(16,185,129,.2); }
+      50%     { box-shadow: 0 0 0 5px rgba(16,185,129,.05); }
+    }
+
+    /* source badges */
+    .src-badges {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .src-badge {
+      display: flex;
+      align-items: stretch;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: 10.5px;
+    }
+
+    .src-bar  { width: 3px; flex-shrink: 0; }
+    .src-info { padding: 5px 10px; display: flex; flex-direction: column; gap: 1px; }
+    .src-name { font-weight: 600; color: var(--text); }
+    .src-dom  { color: var(--muted); }
+
+    .src-badge.arxiv .src-bar { background: var(--arxiv); }
+    .src-badge.rbi   .src-bar { background: var(--rbi); }
+    .src-badge.bis   .src-bar { background: var(--bis); }
+    .src-badge.sebi  .src-bar { background: var(--sebi); }
+
+    /* ── MAIN LAYOUT ─────────────────────────────────────────────────────── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 278px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sb-heading {
+      padding: 14px 16px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .9px;
+      color: var(--faint);
+    }
+
+    .chip-group { padding: 0 12px 10px; }
+
+    .cg-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--faint);
+      padding: 6px 4px 5px;
+    }
+
+    .cg-label::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .chip-group.arxiv .cg-label::before { background: var(--arxiv); }
+    .chip-group.rbi   .cg-label::before { background: var(--rbi); }
+    .chip-group.bis   .cg-label::before { background: var(--bis); }
+    .chip-group.sebi  .cg-label::before { background: var(--sebi); }
+
+    .chip {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 5px;
+      font-size: 11.5px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s, transform .12s;
+      line-height: 1.4;
+      font-family: inherit;
+    }
+
+    .chip:hover {
+      background: var(--accent-dim);
+      border-color: rgba(59,130,246,.45);
+      color: var(--text);
+      transform: translateX(2px);
+    }
+
+    .chip:active { transform: translateX(1px) scale(.99); }
+
+    /* ── CHAT AREA ───────────────────────────────────────────────────────── */
+    .chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── EMPTY STATE ─────────────────────────────────────────────────────── */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin: auto;
+      opacity: .45;
+      pointer-events: none;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .empty p {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 260px;
+      line-height: 1.5;
+    }
+
+    /* ── MESSAGE ROW ─────────────────────────────────────────────────────── */
+    .mrow {
+      display: flex;
+      animation: fadeUp .22s ease forwards;
+    }
+
+    .mrow.user      { justify-content: flex-end; }
+    .mrow.assistant { justify-content: flex-start; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* user bubble */
+    .ububble {
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 16px 16px 4px 16px;
+      max-width: 66%;
+      font-size: 13px;
+      line-height: 1.55;
+      word-break: break-word;
+      box-shadow: 0 2px 12px rgba(59,130,246,.25);
+    }
+
+    /* ── ASSISTANT CARD ──────────────────────────────────────────────────── */
+    .acard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 86%;
+      overflow: hidden;
+      box-shadow: 0 1px 8px rgba(0,0,0,.3);
+    }
+
+    .card-body { padding: 15px 17px; }
+
+    .answer {
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    /* inline citation superscript */
+    .cb {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 0 4px;
+      min-width: 17px;
+      height: 15px;
+      vertical-align: super;
+      line-height: 1;
+      cursor: pointer;
+      font-style: normal;
+      transition: background .15s, color .15s;
+      user-select: none;
+    }
+
+    .cb:hover { background: var(--accent); color: #fff; }
+
+    /* ── SOURCES SECTION ─────────────────────────────────────────────────── */
+    .src-section { border-top: 1px solid var(--border); }
+
+    .src-toggle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 9px 17px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: color .15s;
+    }
+
+    .src-toggle:hover { color: var(--text); }
+
+    .toggle-arrow {
+      width: 13px; height: 13px;
+      flex-shrink: 0;
+      transition: transform .2s ease;
+    }
+
+    .src-toggle.open .toggle-arrow { transform: rotate(90deg); }
+
+    .src-count {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .src-body {
+      padding: 0 17px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .src-body.closed { display: none; }
+
+    /* individual source card */
+    .scard {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .scard-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .scard-num {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 9.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stag {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .stag.arxiv { background: rgba(139,92,246,.15); color: var(--arxiv); }
+    .stag.rbi   { background: rgba(245,158, 11,.15); color: var(--rbi); }
+    .stag.bis   { background: rgba( 59,130,246,.15); color: var(--bis); }
+    .stag.sebi  { background: rgba( 16,185,129,.15); color: var(--sebi); }
+
+    .scard-meta {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .scard-file { font-weight: 500; color: var(--text); }
+    .scard-page { color: var(--faint); }
+
+    .scard-snippet {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.5;
+      border-left: 2px solid var(--border);
+      padding-left: 9px;
+      font-style: italic;
+    }
+
+    /* ── CARD FOOTER ─────────────────────────────────────────────────────── */
+    .card-foot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 17px;
+      background: var(--surface-3);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--faint);
+      flex-wrap: wrap;
+    }
+
+    .foot-sep { color: var(--border-l); }
+
+    .valid-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+      margin-left: auto;
+    }
+
+    .valid-tag.ok   { color: var(--success); }
+    .valid-tag.warn { color: var(--warning); }
+
+    /* ── ERROR CARD ──────────────────────────────────────────────────────── */
+    .err-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(239,68,68,.07);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 12px;
+      padding: 13px 16px;
+      max-width: 84%;
+      font-size: 13px;
+      color: #fca5a5;
+      line-height: 1.5;
+      animation: fadeUp .22s ease forwards;
+    }
+
+    .err-icon { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── THINKING INDICATOR ──────────────────────────────────────────────── */
+    .think-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      animation: fadeUp .22s ease forwards;
+    }
+
+    .think-dots {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 12px 3px;
+      padding: 12px 16px;
+      width: fit-content;
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--faint);
+      animation: dotPulse 1.4s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
+
+    @keyframes dotPulse {
+      0%,100% { opacity: .22; transform: scale(.82); }
+      50%     { opacity: 1;   transform: scale(1); }
+    }
+
+    .think-label {
+      font-size: 10.5px;
+      color: var(--faint);
+      padding-left: 4px;
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── INPUT AREA ──────────────────────────────────────────────────────── */
+    .input-wrap {
+      flex-shrink: 0;
+      padding: 14px 20px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 9px 12px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .input-row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
+
+    #qInput {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13.5px;
+      line-height: 1.55;
+      resize: none;
+      min-height: 22px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    #qInput::placeholder { color: var(--faint); }
+
+    #sendBtn {
+      flex-shrink: 0;
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      transition: background .15s, transform .1s;
+    }
+
+    #sendBtn:hover:not(:disabled)  { background: var(--accent-h); }
+    #sendBtn:active:not(:disabled) { transform: scale(.92); }
+    #sendBtn:disabled { background: var(--border); cursor: not-allowed; opacity: .5; }
+
+    .input-hint {
+      margin-top: 5px;
+      font-size: 10.5px;
+      color: var(--faint);
+      text-align: right;
+      padding-right: 2px;
+    }
+
+    /* ── MOBILE ──────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      body { height: auto; overflow: auto; }
+
+      .main { flex-direction: column; overflow: visible; }
+
+      .sidebar {
+        width: 100%;
+        max-height: 210px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .chat {
+        height: calc(100svh - 290px);
+        min-height: 380px;
+      }
+
+      .messages { padding: 16px; }
+
+      .ububble, .acard, .err-card { max-width: 96%; }
+
+      .header { padding: 12px 16px 10px; }
+
+      .logo-sub { display: none; }
+
+      .src-badges { gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════ HEADER ══════════════════════════════════════════ -->
+<header class="header">
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-icon">
+        <!-- inline chart SVG -->
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+          <polyline points="3,17 9,11 13,15 21,7"
+            stroke="#3b82f6" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="3" y1="21" x2="3"  y2="3"  stroke="#3b82f6" stroke-width="2"   stroke-linecap="round"/>
+          <line x1="3" y1="21" x2="21" y2="21" stroke="#3b82f6" stroke-width="2"   stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="logo-wordmark">
+        <div class="logo-name">FinScope <em>AI</em></div>
+        <div class="logo-sub">Natural language queries 20 regulatory and research documents</div>
+      </div>
+    </div>
+
+    <div class="status-pill">
+      <span class="s-dot" id="sDot"></span>
+      <span id="sText">Checking…</span>
+    </div>
+  </div>
+
+  <div class="src-badges">
+    <div class="src-badge arxiv">
+      <div class="src-bar"></div>
+      <div class="src-info">
+        <span class="src-name">Arxiv · 10 papers</span>
+        <span class="src-dom">LLM in Finance</span>
+      </div>
+    </div>
+    <div class="src-badge rbi">
+      <div class="src-bar"></div>
+      <div class="src-info">
+        <span class="src-name">RBI · 4 reports</span>
+        <span class="src-dom">Monetary Policy</span>
+      </div>
+    </div>
+    <div class="src-badge bis">
+      <div class="src-bar"></div>
+      <div class="src-info">
+        <span class="src-name">BIS · 3 papers</span>
+        <span class="src-dom">Open Banking</span>
+      </div>
+    </div>
+    <div class="src-badge sebi">
+      <div class="src-bar"></div>
+      <div class="src-info">
+        <span class="src-name">SEBI · 3 papers</span>
+        <span class="src-dom">Capital Markets</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════ MAIN CONTENT ════════════════════════════════════ -->
+<div class="main">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-heading">Try asking…</div>
+
+    <div class="chip-group arxiv">
+      <div class="cg-label">Arxiv</div>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">What machine learning methods are used for credit risk assessment in fintech?</button>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">What techniques are used for fraud detection in fintech?</button>
+    </div>
+
+    <div class="chip-group rbi">
+      <div class="cg-label">RBI</div>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">What is RBI's regulatory stance on Central Bank Digital Currency?</button>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">How does RBI assess systemic risk in non-banking financial companies?</button>
+    </div>
+
+    <div class="chip-group bis">
+      <div class="cg-label">BIS</div>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">What does BIS recommend for regulating decentralized finance?</button>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">How does BIS evaluate the financial stability risks of crypto assets?</button>
+    </div>
+
+    <div class="chip-group sebi">
+      <div class="cg-label">SEBI</div>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">What framework does SEBI propose for algorithmic trading oversight?</button>
+      <button class="chip" onclick="chipClick(this.textContent.trim())">How does SEBI approach investor protection in digital asset markets?</button>
+    </div>
+  </aside>
+
+  <!-- ── CHAT AREA ────────────────────────────────────────────────────────── -->
+  <section class="chat">
+    <div class="messages" id="msgs">
+
+      <!-- empty state — removed on first message -->
+      <div class="empty" id="emptyState">
+        <!-- document + magnifying glass -->
+        <svg width="92" height="92" viewBox="0 0 92 92" fill="none">
+          <rect x="10" y="6"  width="46" height="62" rx="4" fill="#111827" stroke="#1e2d4a" stroke-width="1.5"/>
+          <line x1="20" y1="22" x2="46" y2="22" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="20" y1="31" x2="46" y2="31" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="20" y1="40" x2="38" y2="40" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="20" y1="49" x2="32" y2="49" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="63" cy="60" r="18" fill="#0d1424" stroke="#3b82f6" stroke-width="2"/>
+          <circle cx="63" cy="60" r="10" fill="#111827"/>
+          <path d="M57 58 Q63 52 69 58" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          <line x1="77" y1="74" x2="86" y2="83" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <p>Ask a question about fintech regulation and research</p>
+      </div>
+
+    </div>
+
+    <!-- input bar -->
+    <div class="input-wrap">
+      <div class="input-row">
+        <textarea id="qInput" rows="1"
+          placeholder="Ask about CBDC, algorithmic trading, crypto regulation, credit scoring…"></textarea>
+        <button id="sendBtn" title="Send (Ctrl+Enter)">
+          <!-- send arrow -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="22,2 15,22 11,13 2,9" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">Ctrl+Enter to send</div>
+    </div>
+  </section>
+
+</div><!-- .main -->
+
+<!-- ══════════════════════ JAVASCRIPT ══════════════════════════════════════ -->
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+// Use relative paths when served by FastAPI; fall back to localhost when
+// the file is opened directly from disk (file:// protocol).
+const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+// Regex that matches [UUID] citation markers in LLM answers.
+const UUID_RE = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/g;
+
+let busy = false; // prevents double-send while a request is in flight
+
+// ── HEALTH CHECK ─────────────────────────────────────────────────────────────
+// Runs on page load. Updates the status dot and label based on /health response.
+async function checkHealth() {
+  const dot = document.getElementById('sDot');
+  const lbl = document.getElementById('sText');
+  try {
+    const r = await fetch(`${API}/api/v1/health`, { cache: 'no-store' });
+    const d = await r.json();
+    if (r.ok && d.indexes_loaded) {
+      dot.className = 's-dot on';
+      lbl.textContent = 'System Online';
+    } else {
+      dot.className = 's-dot off';
+      lbl.textContent = 'Indexes Not Loaded';
+    }
+  } catch {
+    dot.className = 's-dot off';
+    lbl.textContent = 'System Offline';
+  }
+}
+
+// ── ESCAPE HTML ──────────────────────────────────────────────────────────────
+// Prevents XSS by escaping user/API text before inserting into innerHTML.
+function esc(t) {
+  return t
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ── CITATION PARSING ─────────────────────────────────────────────────────────
+// Parses raw LLM answer text:
+//  1. Finds all [UUID] patterns and assigns sequential numbers (1, 2, 3…)
+//  2. Returns safe HTML with badges instead of UUIDs
+//  3. Returns ordered list of citation objects to populate the Sources section
+function parseCitations(raw, citations) {
+  const idToNum = {};
+  let n = 1;
+
+  // First pass — assign sequential numbers by first appearance
+  raw.replace(UUID_RE, (_, id) => { if (!(id in idToNum)) idToNum[id] = n++; });
+
+  // Build ordered list matching numbers to citation metadata
+  const ordered = Object.entries(idToNum)
+    .sort((a, b) => a[1] - b[1])
+    .map(([id, num]) => {
+      const c = citations.find(x => x.chunk_id === id);
+      return c ? { num, ...c } : null;
+    })
+    .filter(Boolean);
+
+  // Second pass — split on UUIDs (capture group means UUIDs appear as odd indices)
+  const parts = raw.split(UUID_RE);
+  let html = '';
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      // Plain text segment — escape and convert newlines to <br>
+      html += esc(parts[i]).replace(/\n/g, '<br>');
+    } else {
+      // UUID segment — inject numbered badge
+      const num = idToNum[parts[i]] ?? '?';
+      html += `<sup class="cb" title="Source ${num}">[${num}]</sup>`;
+    }
+  }
+
+  return { html, ordered };
+}
+
+// ── SCROLL TO BOTTOM ─────────────────────────────────────────────────────────
+// Smoothly scrolls the messages container to show the latest message.
+function scrollEnd() {
+  const el = document.getElementById('msgs');
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+}
+
+// ── HIDE EMPTY STATE ─────────────────────────────────────────────────────────
+// Called on first user message; removes the centered placeholder.
+function hideEmpty() {
+  const el = document.getElementById('emptyState');
+  if (el) el.remove();
+}
+
+// ── ADD USER MESSAGE ─────────────────────────────────────────────────────────
+// Appends a right-aligned blue bubble for the user's question.
+function addUser(text) {
+  hideEmpty();
+  const row = document.createElement('div');
+  row.className = 'mrow user';
+  row.innerHTML = `<div class="ububble">${esc(text)}</div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollEnd();
+}
+
+// ── THINKING INDICATOR ───────────────────────────────────────────────────────
+// Shows three pulsing dots plus the truncated query below them while waiting.
+function addThinking(query) {
+  const row = document.createElement('div');
+  row.className = 'mrow assistant';
+  row.id = 'thinkRow';
+  const preview = query.length > 62 ? query.slice(0, 62) + '…' : query;
+  row.innerHTML = `
+    <div class="think-wrap">
+      <div class="think-dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="think-label">Processing: ${esc(preview)}</div>
+    </div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollEnd();
+}
+
+// ── REMOVE THINKING ──────────────────────────────────────────────────────────
+function removeThinking() {
+  const el = document.getElementById('thinkRow');
+  if (el) el.remove();
+}
+
+// ── SOURCE CARD HTML ─────────────────────────────────────────────────────────
+// Builds the HTML for one citation card inside the expandable Sources section.
+function srcCard(c) {
+  const src = (['arxiv','rbi','bis','sebi'].includes((c.source||'').toLowerCase()))
+    ? c.source.toLowerCase() : 'bis';
+  const snippet = (c.snippet || '').slice(0, 185);
+  const more = (c.snippet || '').length > 185 ? '…' : '';
+  return `
+    <div class="scard">
+      <div class="scard-head">
+        <div class="scard-num">${c.num}</div>
+        <span class="stag ${src}">${src.toUpperCase()}</span>
+        <div class="scard-meta">
+          <span class="scard-file">${esc(c.filename || '')}</span>
+          <span class="scard-page">· p.${c.page_number ?? '?'}</span>
+        </div>
+      </div>
+      <div class="scard-snippet">${esc(snippet)}${more}</div>
+    </div>`;
+}
+
+// ── TOGGLE SOURCES PANEL ─────────────────────────────────────────────────────
+// Expands or collapses the Sources section when the toggle button is clicked.
+function toggleSrc(btn) {
+  const body = btn.nextElementSibling;
+  const closing = !body.classList.contains('closed');
+  body.classList.toggle('closed', closing);
+  btn.classList.toggle('open', !closing);
+}
+
+// ── RENDER ASSISTANT RESPONSE ─────────────────────────────────────────────────
+// Builds the full response card: formatted answer, collapsible sources, footer.
+function addAssistant(result) {
+  removeThinking();
+
+  const allCitations = result.citations || [];
+  const { html: ansHtml, ordered } = parseCitations(
+    result.answer || '',
+    allCitations
+  );
+
+  // Show ALL reranked chunks in Sources, not just the ones the LLM cited inline.
+  // Cited chunks keep their text-reference numbers; uncited chunks continue numbering after.
+  const citedIds = new Set(ordered.map(c => c.chunk_id));
+  let nextNum = ordered.length + 1;
+  const srcItems = [
+    ...ordered,
+    ...allCitations
+      .filter(c => !citedIds.has(c.chunk_id))
+      .map(c => ({ ...c, num: nextNum++ }))
+  ];
+
+  const meta = result.metadata || {};
+  const cv   = result.citation_validation || {};
+  const valid = cv.all_valid !== false;
+
+  const validBadge = valid
+    ? `<span class="valid-tag ok">✓ All citations valid</span>`
+    : `<span class="valid-tag warn">⚠ Invalid citations detected</span>`;
+
+  const srcSection = srcItems.length > 0 ? `
+    <div class="src-section">
+      <button class="src-toggle" onclick="toggleSrc(this)">
+        <svg class="toggle-arrow" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9,18 15,12 9,6"/>
+        </svg>
+        Sources
+        <span class="src-count">${srcItems.length}</span>
+      </button>
+      <div class="src-body closed">
+        ${srcItems.map(srcCard).join('')}
+      </div>
+    </div>` : '';
+
+  const row = document.createElement('div');
+  row.className = 'mrow assistant';
+  row.innerHTML = `
+    <div class="acard">
+      <div class="card-body">
+        <div class="answer">${ansHtml}</div>
+      </div>
+      ${srcSection}
+      <div class="card-foot">
+        <span>⏱ ${meta.latency_ms ?? '–'} ms</span>
+        <span class="foot-sep">·</span>
+        <span>${meta.retrieved ?? '–'} retrieved</span>
+        <span class="foot-sep">·</span>
+        <span>${meta.reranked_to ?? '–'} reranked</span>
+        ${validBadge}
+      </div>
+    </div>`;
+
+  document.getElementById('msgs').appendChild(row);
+  scrollEnd();
+}
+
+// ── RENDER ERROR ─────────────────────────────────────────────────────────────
+// Shows a red error card when the API call fails.
+function addError(msg) {
+  removeThinking();
+  const row = document.createElement('div');
+  row.className = 'mrow assistant';
+  row.innerHTML = `
+    <div class="err-card">
+      <svg class="err-icon" width="16" height="16" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="13"/>
+        <circle cx="12" cy="16" r=".6" fill="currentColor" stroke="none"/>
+      </svg>
+      ${esc(msg)}
+    </div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollEnd();
+}
+
+// ── SEND QUERY ────────────────────────────────────────────────────────────────
+// Main handler: reads input, disables UI, calls /api/v1/query, renders result.
+async function send() {
+  if (busy) return;
+
+  const inp = document.getElementById('qInput');
+  const question = inp.value.trim();
+  if (!question) return;
+
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  busy = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  addUser(question);
+  addThinking(question);
+
+  try {
+    const res = await fetch(`${API}/api/v1/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, top_k: 5 }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server returned HTTP ${res.status}`);
+    }
+
+    addAssistant(await res.json());
+
+  } catch (e) {
+    const msg = (e.message && e.message.toLowerCase().includes('fetch'))
+      ? 'Could not connect to FinScope AI backend. Is the server running?'
+      : `Backend error: ${e.message}`;
+    addError(msg);
+  } finally {
+    busy = false;
+    document.getElementById('sendBtn').disabled = false;
+    inp.focus();
+  }
+}
+
+// ── CHIP CLICK ────────────────────────────────────────────────────────────────
+// Fills the textarea with the chip text and immediately submits the query.
+function chipClick(text) {
+  const inp = document.getElementById('qInput');
+  inp.value = text;
+  inp.style.height = 'auto';
+  inp.style.height = inp.scrollHeight + 'px';
+  send();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('qInput');
+  const btn = document.getElementById('sendBtn');
+
+  // Send on button click
+  btn.addEventListener('click', send);
+
+  // Ctrl+Enter (or Cmd+Enter on Mac) triggers send; plain Enter adds a newline
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  // Auto-resize textarea as content grows (capped at 180 px)
+  inp.addEventListener('input', () => {
+    inp.style.height = 'auto';
+    inp.style.height = Math.min(inp.scrollHeight, 180) + 'px';
+  });
+
+  // Ping the backend health endpoint so the status pill updates immediately
+  checkHealth();
+
+  inp.focus();
+});
+</script>
+</body>
+</html>

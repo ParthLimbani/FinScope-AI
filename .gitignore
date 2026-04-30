@@ -1,0 +1,55 @@
+# ── Secrets ────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# .env.example is intentionally tracked — safe template, no real secrets
+
+# ── Internal planning docs ─────────────────────────────────────────────────
+FINSCOPE_AI_BLUEPRINT.md
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ── Generated indexes (large binary, rebuild from data/) ───────────────────
+indexes/
+
+# ── Evaluation output (generated, not source) ──────────────────────────────
+evaluation/eval_results.json
+
+# ── IDE / Editor ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Testing ─────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Build / packaging ────────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+
+# ── Temporary diagnostic scripts ────────────────────────────────────────────
+debug_retrieval.py
