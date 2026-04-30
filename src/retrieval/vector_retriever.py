@@ -126,6 +126,33 @@ class VectorRetriever:
     # Mutation
     # ------------------------------------------------------------------
 
+    def remove_by_filename(self, filename: str, index_dir: Path) -> int:
+        """Remove all chunks for a given filename and rebuild the FAISS index in-place.
+
+        Uses index.reconstruct_n() to recover existing vectors — no re-embedding needed.
+        """
+        keep = [i for i, c in enumerate(self._chunks) if c.get("filename") != filename]
+        removed = len(self._chunks) - len(keep)
+        if removed == 0:
+            return 0
+
+        # Reconstruct all stored vectors, then filter to kept indices
+        all_vecs = self._index.reconstruct_n(0, self._index.ntotal)
+        kept_vecs = all_vecs[keep].astype(np.float32)
+
+        new_index = faiss.IndexFlatIP(self._index.d)
+        if len(kept_vecs) > 0:
+            new_index.add(kept_vecs)
+
+        self._index = new_index
+        self._chunks = [self._chunks[i] for i in keep]
+
+        faiss.write_index(self._index, str(index_dir / _FAISS_FILE))
+        with open(index_dir / _CHUNKS_FILE, "w", encoding="utf-8") as fh:
+            json.dump(self._chunks, fh, ensure_ascii=False)
+        _log.info("FAISS: removed %d vectors for '%s' → %d remaining", removed, filename, self._index.ntotal)
+        return removed
+
     def extend(self, new_chunks: list[dict[str, Any]], index_dir: Path) -> None:
         """Embed new chunks via API, add to FAISS index, and persist."""
         texts = [c["text"] for c in new_chunks]

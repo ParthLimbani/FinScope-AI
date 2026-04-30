@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from src.api.schemas import (
+    DeleteResponse,
     FileItem,
     FilesResponse,
     HealthResponse,
@@ -121,14 +122,10 @@ async def list_files():
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(file: UploadFile = File(...), pipeline=Depends(_get_pipeline)):
     """Upload a PDF, chunk it, and add it incrementally to the live index."""
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
-
-    pipeline = _state.get("pipeline")
-    if pipeline is None:
-        raise HTTPException(status_code=503, detail="Pipeline not yet initialised — send a query first.")
 
     upload_dir = _PROJECT_ROOT / "data" / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +169,30 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     _log.info("Incremental index: added %d chunks from '%s'", n_chunks, file.filename)
     return UploadResponse(status="ok", filename=file.filename, chunks_added=n_chunks)
+
+
+@router.delete("/files/{filename}", response_model=DeleteResponse)
+async def delete_file(filename: str, pipeline=Depends(_get_pipeline)):
+    """Remove a PDF from disk and purge all its chunks from both live indexes."""
+    data_dir = _PROJECT_ROOT / os.getenv("DATA_DIR", "data")
+    found = next((p for p in data_dir.rglob("*.pdf") if p.name == filename), None)
+    if not found:
+        raise HTTPException(status_code=404, detail=f"File '{filename}' not found.")
+
+    found.unlink()
+    _log.info("Deleted file → %s", found)
+
+    def _remove() -> int:
+        index_dir = _PROJECT_ROOT / Path(os.getenv("INDEX_DIR", "indexes"))
+        pipeline._retriever._bm25.remove_by_filename(filename, index_dir / "bm25_index.pkl")
+        return pipeline._retriever._vector.remove_by_filename(filename, index_dir / "faiss_index")
+
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        chunks_removed = await loop.run_in_executor(pool, _remove)
+
+    _log.info("Removed %d chunks for '%s' from live indexes", chunks_removed, filename)
+    return DeleteResponse(status="ok", filename=filename, chunks_removed=chunks_removed)
 
 
 @router.get("/health", response_model=HealthResponse)

@@ -69,3 +69,9 @@ class UploadResponse(BaseModel):
     status: str
     filename: str
     chunks_added: int
+
+
+class DeleteResponse(BaseModel):
+    status: str
+    filename: str
+    chunks_removed: int
