@@ -53,7 +53,6 @@ class RAGPipeline:
         """
         index_dir = Path(os.getenv("INDEX_DIR", "indexes"))
         embed_model = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
-        reranker_model = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
         _log.info("Loading BM25 index from %s ...", index_dir / "bm25_index.pkl")
         bm25 = BM25Retriever.load(index_dir / "bm25_index.pkl")
@@ -62,10 +61,10 @@ class RAGPipeline:
         vector = VectorRetriever.load(index_dir / "faiss_index", embed_model)
 
         self._retriever = HybridRetriever(bm25, vector)
-        self._reranker = CrossEncoderReranker(reranker_model)
+        self._reranker = CrossEncoderReranker()
         self._llm = GroqClient()
 
-        _log.info("Pipeline ready — model=%s  reranker=%s", self._llm.model, reranker_model)
+        _log.info("Pipeline ready — model=%s  reranker=%s", self._llm.model, self._reranker.model)
 
     async def query(
         self,

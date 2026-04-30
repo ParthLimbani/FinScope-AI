@@ -54,25 +54,35 @@ def _build_ragas_llm():
 
 class _STEmbeddings:
     """
-    Wraps sentence-transformers SentenceTransformer to expose the two async
-    methods that RAGAS AnswerRelevancy calls: aembed_text and aembed_texts.
+    HF Inference API embeddings adapter for RAGAS AnswerRelevancy.
+    Exposes aembed_text and aembed_texts — no local model loaded.
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
-        from sentence_transformers import SentenceTransformer
-        self._model = SentenceTransformer(model_name)
+        self._hf_model = (
+            model_name if "/" in model_name
+            else f"sentence-transformers/{model_name}"
+        )
+        self._hf_token = os.getenv("HF_TOKEN")
+
+    def _call(self, texts: list[str]) -> list[list[float]]:
+        import numpy as np
+        from huggingface_hub import InferenceClient
+
+        client = InferenceClient(token=self._hf_token)
+        result = client.feature_extraction(texts, model=self._hf_model)
+        arr = np.array(result, dtype=np.float32)
+        if arr.ndim == 3:
+            arr = arr[:, 0, :]
+        return arr.tolist()
 
     async def aembed_text(self, text: str) -> list[float]:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self._model.encode(text).tolist()
-        )
+        return await loop.run_in_executor(None, lambda: self._call([text])[0])
 
     async def aembed_texts(self, texts: list[str]) -> list[list[float]]:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, lambda: self._model.encode(texts).tolist()
-        )
+        return await loop.run_in_executor(None, lambda: self._call(texts))
 
 
 # ---------------------------------------------------------------------------

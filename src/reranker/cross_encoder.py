@@ -1,40 +1,71 @@
-"""Cross-encoder reranker: re-scores (query, chunk) pairs for precision ranking."""
+"""Cross-encoder reranker via HuggingFace Inference API — no local model."""
 
+import json
+import logging
 import os
 from typing import Any
 
 from dotenv import load_dotenv
-from sentence_transformers import CrossEncoder
 
 load_dotenv()
 
+_log = logging.getLogger(__name__)
 _DEFAULT_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+
+def _parse_scores(raw: Any, n: int) -> list[float]:
+    """
+    Normalise the three response shapes the HF Inference API can return for
+    a cross-encoder / text-classification model.
+
+    Shapes observed:
+      A) [[{"label":"LABEL_0","score":0.12},{"label":"LABEL_1","score":0.88}], ...]
+         — one list of label dicts per pair; take the highest score per row.
+      B) [{"label":"LABEL_1","score":0.88}, ...]
+         — single dict per pair (binary classification, one result per pair).
+      C) [0.88, 0.12, ...]
+         — flat list of floats.
+    """
+    if not raw:
+        return [0.0] * n
+
+    # Shape C — flat floats
+    if isinstance(raw[0], (int, float)):
+        return [float(x) for x in raw]
+
+    # Shape B — single dict per pair
+    if isinstance(raw[0], dict):
+        return [float(x.get("score", 0.0)) for x in raw]
+
+    # Shape A — list of label dicts per pair; take max score per row
+    scores = []
+    for row in raw:
+        if isinstance(row, list):
+            scores.append(max(float(d.get("score", 0.0)) for d in row))
+        elif isinstance(row, dict):
+            scores.append(float(row.get("score", 0.0)))
+        else:
+            scores.append(float(row))
+    return scores
 
 
 class CrossEncoderReranker:
     """
-    Second-stage reranker that scores (query, passage) pairs jointly.
+    Second-stage reranker that scores (query, passage) pairs via the
+    HuggingFace Inference API.  No local model is loaded.
 
-    Unlike bi-encoders (FAISS), a cross-encoder processes the full query+passage
-    concatenation, producing much more accurate relevance scores at the cost of
-    higher latency.  Used to re-rank the top-20 hybrid retrieval candidates and
-    return the top-5 before generation.
-
-    Model: ``cross-encoder/ms-marco-MiniLM-L-6-v2`` — ~22 MB, runs on CPU in
-    roughly 1 second for 20 candidate pairs.
+    Model: ``cross-encoder/ms-marco-MiniLM-L-6-v2`` (default).
+    API fallback: if the HF call fails, chunks are returned with ce_score=0
+    sorted by their existing rrf_score so the pipeline never hard-crashes.
     """
 
     def __init__(self, model_name: str | None = None) -> None:
-        """
-        Args:
-            model_name: HuggingFace cross-encoder identifier.  Defaults to the
-                        RERANKER_MODEL environment variable, or
-                        ``cross-encoder/ms-marco-MiniLM-L-6-v2``.
-        """
         name = model_name or os.getenv("RERANKER_MODEL", _DEFAULT_MODEL)
-        print(f"[Reranker] Loading cross-encoder '{name}'...")
-        self._model = CrossEncoder(name)
+        if "/" not in name:
+            name = f"cross-encoder/{name}"
         self._model_name = name
+        self.model = name           # exposed for rag_pipeline logging
+        _log.info("[Reranker] API mode — model=%s", self._model_name)
 
     def rerank(
         self,
@@ -42,35 +73,39 @@ class CrossEncoderReranker:
         chunks: list[dict[str, Any]],
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        """
-        Score every (query, chunk_text) pair and return the top-K by ``ce_score``.
-
-        Each output chunk is a shallow copy of the input dict with a new
-        ``ce_score`` (float) key appended.  All original keys — including
-        ``rrf_score`` and ``appeared_in`` — are preserved intact so the caller
-        retains full provenance.
-
-        Args:
-            query: Natural-language query string.
-            chunks: Candidate chunks from the hybrid retriever.  Each dict must
-                    contain a ``text`` key.
-            top_k: Maximum number of chunks to return (default 5).
-
-        Returns:
-            List of chunk dicts (at most *top_k* items) with ``ce_score``
-            attached, sorted by ``ce_score`` descending.
-        """
+        """Score every (query, chunk_text) pair and return the top-K by ce_score."""
         if not chunks:
             return []
 
-        pairs = [(query, chunk["text"]) for chunk in chunks]
-        raw_scores = self._model.predict(pairs)
+        scores = self._score_api(query, [c["text"] for c in chunks])
 
         scored: list[dict[str, Any]] = []
-        for chunk, score in zip(chunks, raw_scores):
-            result = dict(chunk)          # shallow copy — preserves rrf_score etc.
+        for chunk, score in zip(chunks, scores):
+            result = dict(chunk)
             result["ce_score"] = float(score)
             scored.append(result)
 
         scored.sort(key=lambda x: x["ce_score"], reverse=True)
         return scored[:top_k]
+
+    def _score_api(self, query: str, passages: list[str]) -> list[float]:
+        """Call HF Inference API and return one relevance score per passage."""
+        from huggingface_hub import InferenceClient
+
+        hf_token = os.getenv("HF_TOKEN")
+        client = InferenceClient(token=hf_token)
+        pairs = [[query, p] for p in passages]
+
+        try:
+            raw = client.post(
+                json={"inputs": pairs},
+                model=self._model_name,
+            )
+            if isinstance(raw, (bytes, bytearray)):
+                raw = json.loads(raw)
+            return _parse_scores(raw, len(passages))
+        except Exception as exc:
+            _log.warning(
+                "[Reranker] HF API error (%s) — falling back to rrf_score ordering", exc
+            )
+            return [0.0] * len(passages)

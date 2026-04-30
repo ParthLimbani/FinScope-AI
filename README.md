@@ -30,13 +30,11 @@ indexes/bm25_index.pkl   indexes/faiss_index/
 ```
 User Query
     │
-    ├── [USE_LOCAL_MODELS=true]  Embed locally (SentenceTransformer in-process)
-    └── [USE_LOCAL_MODELS=false] Embed via HF Inference API (zero local RAM)
+    Embed via HF Inference API (zero local RAM)
               │
     Hybrid Retrieval — BM25 (top 20) + FAISS (top 20) → RRF fusion (top 20)
               │
-    ├── [USE_LOCAL_MODELS=true]  CrossEncoder ms-marco-MiniLM-L-6-v2 (local)
-    └── [USE_LOCAL_MODELS=false] Cross-encoder scoring via HF Inference API
+    Cross-encoder scoring via HF Inference API (ms-marco-MiniLM-L-6-v2)
               │
     Reranked top 5
               │
@@ -83,12 +81,10 @@ Evaluated on 15 hand-crafted Q&A pairs spanning all four document sources using 
 | Component | Tool |
 |-----------|------|
 | LLM | Groq API — LLaMA 3.3 70B |
-| Embeddings (local) | `sentence-transformers` (`all-MiniLM-L6-v2`) |
-| Embeddings (Render) | HuggingFace Inference API — `InferenceClient.feature_extraction()` |
+| Embeddings | HuggingFace Inference API — `InferenceClient.feature_extraction()` |
 | Vector DB | FAISS `IndexFlatIP` (cosine via L2-normalised inner product) |
 | Sparse Retrieval | `rank_bm25` |
-| Reranker (local) | `cross-encoder/ms-marco-MiniLM-L-6-v2` (CrossEncoder) |
-| Reranker (Render) | HuggingFace Inference API — `InferenceClient.post()` |
+| Reranker | HuggingFace Inference API — `InferenceClient.post()` |
 | PDF Parsing | PyMuPDF (`fitz`) |
 | API Framework | FastAPI + Pydantic v2 |
 | Evaluation | RAGAS 0.4 + InstructorLLM (Groq) |
