@@ -808,9 +808,13 @@ async function checkHealth() {
     if (r.ok && d.indexes_loaded) {
       dot.className = 's-dot on';
       lbl.textContent = 'System Online';
+    } else if (r.ok) {
+      // Server is up but pipeline hasn't warmed yet (lazy load — fires on first query)
+      dot.className = 's-dot';
+      lbl.textContent = 'Ready — send a query to initialise';
     } else {
       dot.className = 's-dot off';
-      lbl.textContent = 'Indexes Not Loaded';
+      lbl.textContent = 'System Offline';
     }
   } catch {
     dot.className = 's-dot off';
@@ -1062,6 +1066,7 @@ async function send() {
     }
 
     addAssistant(await res.json());
+    checkHealth(); // pipeline is now warm — refresh status pill
 
   } catch (e) {
     const msg = (e.message && e.message.toLowerCase().includes('fetch'))
