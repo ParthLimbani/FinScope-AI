@@ -22,22 +22,10 @@ _log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load the RAGPipeline singleton on startup; release resources on shutdown."""
-    from src.api.routes import _state
-    from src.pipeline.rag_pipeline import RAGPipeline
-
-    _log.info("FinScope AI — loading indexes and models (this takes ~30s on first run)...")
-    try:
-        pipeline = RAGPipeline()
-        _state["pipeline"] = pipeline
-        _state["model"] = pipeline._llm.model
-        _log.info("Pipeline ready.")
-    except Exception as exc:
-        # Allow the server to start so /health returns indexes_loaded=False.
-        _log.error("Pipeline startup failed: %s", exc)
-
+    """Server starts immediately; pipeline loads lazily on first request."""
+    _log.info("FinScope AI — server starting (pipeline loads on first request).")
     yield
-
+    from src.api.routes import _state
     _log.info("FinScope AI — shutting down.")
     _state["pipeline"] = None
 

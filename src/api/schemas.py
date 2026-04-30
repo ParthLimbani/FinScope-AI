@@ -52,3 +52,20 @@ class HealthResponse(BaseModel):
     status: str
     indexes_loaded: bool
     model: str
+
+
+class FileItem(BaseModel):
+    filename: str
+    source: str
+    size_kb: float
+
+
+class FilesResponse(BaseModel):
+    files: list[FileItem]
+    total: int
+
+
+class UploadResponse(BaseModel):
+    status: str
+    filename: str
+    chunks_added: int
