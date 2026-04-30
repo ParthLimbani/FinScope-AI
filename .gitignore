@@ -20,9 +20,6 @@ env/
 .venv/
 ENV/
 
-# ── Generated indexes (large binary, rebuild from data/) ───────────────────
-indexes/
-
 # ── Evaluation output (generated, not source) ──────────────────────────────
 evaluation/eval_results.json
 
