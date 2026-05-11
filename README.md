@@ -1,14 +1,12 @@
 # FinScope AI
 
-A production-grade RAG system for querying 20 public fintech research and regulatory documents (Arxiv, RBI, BIS, SEBI) with hybrid retrieval, neural reranking, citation enforcement, CI-gated evaluation, and a live PDF upload feature.
+A production-grade RAG system for querying 20 public fintech research and regulatory documents (Arxiv, RBI, BIS, SEBI) with hybrid retrieval, neural reranking, citation enforcement, session-scoped conversation memory, CI-gated evaluation, and a live PDF upload feature.
 
 ---
 
 ## Architecture
 
-The system operates in two modes controlled by the `USE_LOCAL_MODELS` environment variable.
-
-### Index Build (offline, always local)
+### Index Build (offline)
 
 ```
 PDFs (data/)
@@ -25,10 +23,10 @@ BM25Okapi index    FAISS IndexFlatIP
 indexes/bm25_index.pkl   indexes/faiss_index/
 ```
 
-### Query Path (dual-mode)
+### Query Path (API-only, no local models)
 
 ```
-User Query
+User Query + Conversation History (last 3 exchanges)
     │
     Embed via HF Inference API (zero local RAM)
               │
@@ -39,7 +37,8 @@ User Query
     Reranked top 5
               │
     Groq API — LLaMA 3.3 70B (max 1500 tokens)
-    Strict system prompt: cite every claim with chunk_id UUID
+    Messages: [system] → [prior turns] → [context + question]
+    Strict system prompt: domain gate + cite every claim with chunk_id UUID
               │
     Citation Validation — all inline [UUID] refs resolved
               │
@@ -67,12 +66,12 @@ Evaluated on 15 hand-crafted Q&A pairs spanning all four document sources using 
 
 | Metric | Score | CI Gate |
 |---|---|---|
-| Faithfulness | **0.84** | ≥ 0.80 ✓ |
+| Faithfulness | **0.84** | ≥ 0.84 ✓ |
 | Answer Relevancy | **0.79** | — |
 | Context Recall | **0.73** | — |
 | Avg Query Latency | **1.4 s** | — |
 
-> Faithfulness measures whether every claim in the answer is grounded in the retrieved context. The CI gate blocks any PR that drops it below 0.80.
+> Faithfulness measures whether every claim in the answer is grounded in the retrieved context. The CI gate blocks any PR that drops it below 0.84.
 
 ---
 
@@ -98,10 +97,14 @@ Evaluated on 15 hand-crafted Q&A pairs spanning all four document sources using 
 Three-column layout served as a single static HTML file (`src/static/index.html`):
 
 - **Left panel** — Sample question chips grouped by source (Arxiv, RBI, BIS, SEBI). Click any chip to instantly submit that query.
-- **Centre panel** — Chat interface with a thinking indicator, inline citation superscripts, collapsible Sources panel per answer, and per-query latency/rerank metadata in the card footer.
+- **Centre panel** — Chat interface with a thinking indicator, inline citation superscripts, collapsible Sources panel per answer, and per-query latency/rerank metadata in the card footer. A **Clear chat** button appears after the first exchange and resets the conversation history.
 - **Right panel** — Live document browser showing all indexed PDFs. Files uploaded by the user are tagged **"Added by User"** (purple) instead of a source classification. Upload button accepts PDF-only files and streams them into the live index without a restart.
 - **Header** — Source corpus badges (Arxiv, RBI, BIS, SEBI). A **User · N files** badge appears dynamically once the first PDF is uploaded.
 - **Status pill** — Three states: grey *"Ready — send a query to initialise"* (lazy load not yet triggered), green *"System Online"* (pipeline warm), red *"System Offline"* (server unreachable).
+
+### Conversation Memory
+
+Each browser session maintains a rolling conversation history. The last **3 exchanges (6 messages)** are sent with every new query so the LLM can resolve follow-ups like *"What about SEBI's position on that?"* without the user repeating context. History is stored in a JS array — it is **session-scoped only** (clears on refresh) and requires no server-side storage. The domain restriction and citation rules in the system prompt apply to every turn regardless of history.
 
 ---
 
@@ -137,8 +140,7 @@ cp .env.example .env
 ```
 GROQ_API_KEY=your_key_here
 EMBED_MODEL=all-MiniLM-L6-v2
-HF_TOKEN=your_hf_token          # only needed if USE_LOCAL_MODELS=false
-USE_LOCAL_MODELS=true            # set false to use HF Inference API instead of local models
+HF_TOKEN=your_hf_token
 INDEX_DIR=indexes
 DATA_DIR=data
 TOP_K_RETRIEVE=20
@@ -163,9 +165,22 @@ Server starts at `http://localhost:8000`. Interactive docs at `http://localhost:
 ### 6. Example query
 
 ```bash
+# First turn
 curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What is RBI'\''s approach to CBDC?", "top_k": 5}'
+
+# Follow-up with history (last exchange)
+curl -X POST http://localhost:8000/api/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What about implementation timelines?",
+    "top_k": 5,
+    "history": [
+      {"role": "user",      "content": "What is RBI'\''s approach to CBDC?"},
+      {"role": "assistant", "content": "The RBI has outlined..."}
+    ]
+  }'
 ```
 
 ### 7. Run unit tests
@@ -178,7 +193,7 @@ pytest -v
 
 ## Running Evaluations
 
-The RAGAS evaluation pipeline measures faithfulness, answer relevancy, and context recall across 15 hand-crafted Q&A pairs.
+The RAGAS evaluation pipeline measures faithfulness, answer relevancy, and context recall across 18 hand-crafted Q&A pairs defined in `eval_questions.json`.
 
 ### Prerequisites
 
@@ -195,7 +210,7 @@ Output:
 ```
 ============================================================
   FinScope AI — RAGAS Evaluation Summary
-  CI gate: faithfulness >= 0.80
+  CI gate: faithfulness >= 0.84
 ============================================================
   Metric                    Score   Status
   --------------------------------------------------------
@@ -207,9 +222,15 @@ Output:
 
 Results are saved to `evaluation/eval_results.json` after every run.
 
+To run against the CI question set specifically:
+
+```bash
+EVAL_QUESTIONS_FILE=eval_questions.json python evaluation/eval_runner.py
+```
+
 ### CI Gate
 
-GitHub Actions runs this pipeline on every PR to `main`. Any PR that drops faithfulness below `0.80` is automatically blocked.
+GitHub Actions runs this pipeline on every **push and PR to `main`** using Python 3.11 with pip caching. The eval loads `eval_questions.json` (18 domain-specific questions) and fails the build if faithfulness drops below **0.84**. Scores are posted as a PR comment with a per-question breakdown of any failing questions.
 
 ---
 
@@ -226,9 +247,8 @@ GitHub Actions runs this pipeline on every PR to `main`. Any PR that drops faith
 |---|---|
 | `GROQ_API_KEY` | your Groq key |
 | `HF_TOKEN` | your HuggingFace token |
-| `USE_LOCAL_MODELS` | `false` |
 
-Setting `USE_LOCAL_MODELS=false` routes all embedding and reranking through the HuggingFace Inference API. No PyTorch models are loaded into the process — RAM stays under ~80 MB, well within Render's free tier 512 MB limit.
+All embedding and reranking routes through the HuggingFace Inference API — no PyTorch models are loaded. RAM stays under ~80 MB, well within Render's free tier 512 MB limit.
 
 > **Note:** Pre-built indexes (`indexes/`) must be committed to the repo or generated via `POST /api/v1/ingest` after deploy.
 
@@ -239,8 +259,15 @@ Setting `USE_LOCAL_MODELS=false` routes all embedding and reranking through the 
 ### `POST /api/v1/query`
 
 ```json
-// Request
-{ "question": "What is RBI's stance on CBDC?", "top_k": 5 }
+// Request — history is optional; omit on the first turn
+{
+  "question": "What is RBI's stance on CBDC?",
+  "top_k": 5,
+  "history": [
+    { "role": "user",      "content": "Tell me about open banking." },
+    { "role": "assistant", "content": "Open banking refers to..." }
+  ]
+}
 
 // Response
 {
