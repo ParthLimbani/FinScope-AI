@@ -340,4 +340,4 @@ Lists all indexed PDFs with their source classification and file size.
 
 ---
 
-*FinScope AI — Production RAG, evaluated with RAGAS, deployed on Render.*
+*FinScope AI — Production RAG, CI-evaluated with RAGAS, deployed on Render.*
