@@ -71,6 +71,7 @@ class RAGPipeline:
         question: str,
         top_k_retrieve: int = 20,
         top_k_rerank: int = 5,
+        history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """
         Run the full RAG pipeline for a natural-language question.
@@ -148,7 +149,7 @@ class RAGPipeline:
 
         # Stage 4 — LLM generation (may raise LLMError)
         t4 = time.perf_counter()
-        answer = await self._llm.generate(prompt, SYSTEM_PROMPT)
+        answer = await self._llm.generate(prompt, SYSTEM_PROMPT, history=history or [])
         ms4 = round((time.perf_counter() - t4) * 1000, 1)
         _log.info(
             "[4/5] LLM generation — model=%s  answer=%d chars  %.1f ms",

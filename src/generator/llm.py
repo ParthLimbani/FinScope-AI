@@ -53,13 +53,14 @@ class GroqClient:
         self._client = AsyncGroq(api_key=key)
         self.model: str = model or os.getenv("LLM_MODEL", _DEFAULT_MODEL)
 
-    async def generate(self, prompt: str, system: str) -> str:
+    async def generate(self, prompt: str, system: str, history: list[dict] | None = None) -> str:
         """
         Send a chat completion request and return the model's text response.
 
         Args:
             prompt: User-turn message (context block + question).
             system: System-turn message (citation rules, persona).
+            history: Prior conversation turns injected between system and user messages.
 
         Returns:
             The model's text response as a plain string.
@@ -68,13 +69,15 @@ class GroqClient:
             LLMError: On rate limits, connection failures, HTTP errors, or an
                       empty response — always with a human-readable description.
         """
+        messages: list[dict] = [{"role": "system", "content": system}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+
         try:
             response = await self._client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 temperature=0.1,
                 max_tokens=1500,
             )

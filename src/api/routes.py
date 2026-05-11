@@ -61,6 +61,7 @@ async def query(body: QueryRequest, pipeline=Depends(_get_pipeline)):
             body.question,
             top_k_retrieve=20,
             top_k_rerank=body.top_k,
+            history=[h.model_dump() for h in body.history],
         )
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc))

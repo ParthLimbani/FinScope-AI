@@ -3,9 +3,15 @@
 from pydantic import BaseModel, Field
 
 
+class HistoryItem(BaseModel):
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., min_length=1)
+
+
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language question")
     top_k: int = Field(5, ge=1, le=20, description="Number of reranked chunks passed to the LLM")
+    history: list[HistoryItem] = Field(default_factory=list, description="Prior conversation turns (capped at last 6 by client)")
 
 
 class CitationItem(BaseModel):

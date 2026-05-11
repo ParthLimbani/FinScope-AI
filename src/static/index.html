@@ -448,6 +448,23 @@
     .upload-status.ok      { color: var(--success); }
     .upload-status.err     { color: var(--error); }
 
+    /* ── CHAT TOPBAR (clear button) ─────────────────────────────────────── */
+    .chat-topbar {
+      display: flex; justify-content: flex-end;
+      padding: 8px 20px 0; flex-shrink: 0; min-height: 32px;
+    }
+
+    .clear-btn {
+      display: none; align-items: center; gap: 5px;
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 10px;
+      font-size: 10.5px; color: var(--faint);
+      cursor: pointer; font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .clear-btn:hover { border-color: rgba(239,68,68,.5); color: var(--error); }
+    .clear-btn.visible { display: flex; }
+
     /* ── MOBILE ──────────────────────────────────────────────────────────── */
     @media (max-width: 900px) {
       body { height: auto; overflow: auto; }
@@ -562,6 +579,17 @@
 
   <!-- ── MIDDLE: Chat ────────────────────────────────────────────────────── -->
   <section class="chat">
+    <div class="chat-topbar">
+      <button class="clear-btn" id="clearBtn" title="Clear conversation" onclick="clearChat()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,6 5,6 21,6"/>
+          <path d="M19,6l-1,14a2,2 0 0,1-2,2H8a2,2 0,0,1-2-2L5,6"/>
+          <line x1="10" y1="11" x2="10" y2="17"/>
+          <line x1="14" y1="11" x2="14" y2="17"/>
+        </svg>
+        Clear chat
+      </button>
+    </div>
     <div class="messages" id="msgs">
       <div class="empty" id="emptyState">
         <svg width="92" height="92" viewBox="0 0 92 92" fill="none">
@@ -634,6 +662,7 @@
 const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
 const UUID_RE = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/g;
 let busy = false;
+let conversationHistory = [];
 
 // ── HEALTH CHECK ─────────────────────────────────────────────────────────────
 async function checkHealth() {
@@ -823,13 +852,18 @@ async function send() {
   addThinking(question);
 
   try {
+    const historyToSend = conversationHistory.slice(-6);
     const res = await fetch(`${API}/api/v1/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, top_k: 5 }),
+      body: JSON.stringify({ question, top_k: 5, history: historyToSend }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
-    addAssistant(await res.json());
+    const data = await res.json();
+    addAssistant(data);
+    conversationHistory.push({ role: 'user', content: question });
+    conversationHistory.push({ role: 'assistant', content: data.answer || '' });
+    document.getElementById('clearBtn').classList.add('visible');
   } catch (e) {
     const msg = (e.message && e.message.toLowerCase().includes('fetch'))
       ? 'Could not connect to FinScope AI backend. Is the server running?'
@@ -954,6 +988,28 @@ function setUploadStatus(type, msg) {
   const el = document.getElementById('uploadStatus');
   el.className = 'upload-status' + (type ? ' ' + type : '');
   el.textContent = msg;
+}
+
+// ── CLEAR CHAT ────────────────────────────────────────────────────────────────
+function clearChat() {
+  conversationHistory = [];
+  const msgs = document.getElementById('msgs');
+  msgs.innerHTML = `
+    <div class="empty" id="emptyState">
+      <svg width="92" height="92" viewBox="0 0 92 92" fill="none">
+        <rect x="10" y="6" width="46" height="62" rx="4" fill="#111827" stroke="#1e2d4a" stroke-width="1.5"/>
+        <line x1="20" y1="22" x2="46" y2="22" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20" y1="31" x2="46" y2="31" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20" y1="40" x2="38" y2="40" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20" y1="49" x2="32" y2="49" stroke="#243752" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="63" cy="60" r="18" fill="#0d1424" stroke="#3b82f6" stroke-width="2"/>
+        <circle cx="63" cy="60" r="10" fill="#111827"/>
+        <path d="M57 58 Q63 52 69 58" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <line x1="77" y1="74" x2="86" y2="83" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <p>Ask a question about fintech regulation and research</p>
+    </div>`;
+  document.getElementById('clearBtn').classList.remove('visible');
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
