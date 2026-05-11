@@ -90,20 +90,17 @@ class CrossEncoderReranker:
 
     def _score_api(self, query: str, passages: list[str]) -> list[float]:
         """Call HF Inference API and return one relevance score per passage."""
-        from huggingface_hub import InferenceClient
+        import requests
 
         hf_token = os.getenv("HF_TOKEN")
-        client = InferenceClient(token=hf_token)
         pairs = [[query, p] for p in passages]
+        url = f"https://api-inference.huggingface.co/models/{self._model_name}"
+        headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
 
         try:
-            raw = client.post(
-                json={"inputs": pairs},
-                model=self._model_name,
-            )
-            if isinstance(raw, (bytes, bytearray)):
-                raw = json.loads(raw)
-            return _parse_scores(raw, len(passages))
+            resp = requests.post(url, headers=headers, json={"inputs": pairs}, timeout=30)
+            resp.raise_for_status()
+            return _parse_scores(resp.json(), len(passages))
         except Exception as exc:
             _log.warning(
                 "[Reranker] HF API error (%s) — falling back to rrf_score ordering", exc

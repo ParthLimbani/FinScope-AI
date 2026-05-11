@@ -69,7 +69,6 @@ jobs:
               body += `| Metric | Score | Gate | Status |\n`;
               body += `|--------|------:|-----:|--------|\n`;
               body += `| Faithfulness | ${results.faithfulness.toFixed(4)} | ≥ ${FAITH_GATE} | ${pass(results.faithfulness, FAITH_GATE)} |\n`;
-              body += `| Answer Relevancy | ${results.answer_relevancy.toFixed(4)} | ≥ 0.75 | ${pass(results.answer_relevancy, 0.75)} |\n`;
               body += `| Context Recall | ${results.context_recall.toFixed(4)} | ≥ 0.70 | ${pass(results.context_recall, 0.70)} |\n`;
 
               if (results.per_question && results.per_question.length > 0) {

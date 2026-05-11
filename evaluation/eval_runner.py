@@ -48,41 +48,6 @@ def _build_ragas_llm():
     return InstructorLLM(client=client, model="llama-3.3-70b-versatile", provider="groq")
 
 
-# ---------------------------------------------------------------------------
-# Embedding helper — sentence-transformers duck-typed to RAGAS interface
-# ---------------------------------------------------------------------------
-
-class _STEmbeddings:
-    """
-    HF Inference API embeddings adapter for RAGAS AnswerRelevancy.
-    Exposes aembed_text and aembed_texts — no local model loaded.
-    """
-
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
-        self._hf_model = (
-            model_name if "/" in model_name
-            else f"sentence-transformers/{model_name}"
-        )
-        self._hf_token = os.getenv("HF_TOKEN")
-
-    def _call(self, texts: list[str]) -> list[list[float]]:
-        import numpy as np
-        from huggingface_hub import InferenceClient
-
-        client = InferenceClient(token=self._hf_token)
-        result = client.feature_extraction(texts, model=self._hf_model)
-        arr = np.array(result, dtype=np.float32)
-        if arr.ndim == 3:
-            arr = arr[:, 0, :]
-        return arr.tolist()
-
-    async def aembed_text(self, text: str) -> list[float]:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: self._call([text])[0])
-
-    async def aembed_texts(self, texts: list[str]) -> list[list[float]]:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: self._call(texts))
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +57,7 @@ class _STEmbeddings:
 async def _run_evaluation() -> None:
     from ragas import EvaluationDataset, SingleTurnSample
     from ragas import evaluate as ragas_evaluate
-    from ragas.metrics.collections import AnswerRelevancy, ContextRecall, Faithfulness
+    from ragas.metrics.collections import ContextRecall, Faithfulness
 
     from src.pipeline.rag_pipeline import RAGPipeline
 
@@ -121,14 +86,13 @@ async def _run_evaluation() -> None:
     print(f"[Eval] Queries complete in {query_elapsed} ms")
 
     # ── 4. Build RAGAS dataset ─────────────────────────────────────────────
+    # AnswerRelevancy requires RAGAS-native embeddings (not supported with our HF adapter).
+    # CI gate only checks faithfulness; ContextRecall is LLM-only.
     print("[Eval] Configuring RAGAS metrics with Groq LLM...")
     ragas_llm = _build_ragas_llm()
-    embed_model = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
-    st_embeddings = _STEmbeddings(embed_model)
 
     metrics = [
         Faithfulness(llm=ragas_llm),
-        AnswerRelevancy(llm=ragas_llm, embeddings=st_embeddings),
         ContextRecall(llm=ragas_llm),
     ]
 
@@ -159,24 +123,22 @@ async def _run_evaluation() -> None:
         return statistics.mean(vals) if vals else 0.0
 
     mean_faith = _safe_mean("faithfulness")
-    mean_rel   = _safe_mean("answer_relevancy")
     mean_rec   = _safe_mean("context_recall")
 
     per_question = [
         {
-            "question":         qa["question"],
-            "source":           qa.get("source", ""),
-            "difficulty":       qa.get("difficulty", ""),
-            "faithfulness":     scores.get("faithfulness"),
-            "answer_relevancy": scores.get("answer_relevancy"),
-            "context_recall":   scores.get("context_recall"),
+            "question":       qa["question"],
+            "source":         qa.get("source", ""),
+            "difficulty":     qa.get("difficulty", ""),
+            "faithfulness":   scores.get("faithfulness"),
+            "context_recall": scores.get("context_recall"),
         }
         for qa, scores in zip(qa_pairs, score_dicts)
     ]
 
     summary = {
         "faithfulness":     round(mean_faith, 4),
-        "answer_relevancy": round(mean_rel,   4),
+        "answer_relevancy": None,
         "context_recall":   round(mean_rec,   4),
         "per_question":     per_question,
         "timestamp":        datetime.now(timezone.utc).isoformat(),
@@ -198,7 +160,6 @@ async def _run_evaluation() -> None:
     print(f"  {'Metric':<24} {'Score':>8}   Status")
     print("  " + "-" * 56)
     print(f"  {'Faithfulness':<24} {mean_faith:>8.4f}   {_pass(mean_faith, FAITHFULNESS_THRESHOLD)}")
-    print(f"  {'Answer Relevancy':<24} {mean_rel:>8.4f}   {_pass(mean_rel, 0.75)}")
     print(f"  {'Context Recall':<24} {mean_rec:>8.4f}   {_pass(mean_rec, 0.70)}")
     print("=" * 60)
     print()
