@@ -72,6 +72,7 @@ class RAGPipeline:
         top_k_retrieve: int = 20,
         top_k_rerank: int = 5,
         history: list[dict] | None = None,
+        max_chars_per_chunk: int | None = None,
     ) -> dict[str, Any]:
         """
         Run the full RAG pipeline for a natural-language question.
@@ -140,7 +141,7 @@ class RAGPipeline:
 
         # Stage 3 — Build LLM prompt
         t3 = time.perf_counter()
-        prompt = build_prompt(question, reranked)
+        prompt = build_prompt(question, reranked, max_chars_per_chunk=max_chars_per_chunk)
         ms3 = round((time.perf_counter() - t3) * 1000, 1)
         _log.info(
             "[3/5] Prompt built — %d chunks, %d chars  %.1f ms",

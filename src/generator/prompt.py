@@ -31,7 +31,11 @@ Retrieved document chunks will be provided below. Answer strictly based on them.
 # Prompt builder
 # ---------------------------------------------------------------------------
 
-def build_prompt(query: str, chunks: list[dict[str, Any]]) -> str:
+def build_prompt(
+    query: str,
+    chunks: list[dict[str, Any]],
+    max_chars_per_chunk: int | None = None,
+) -> str:
     """
     Format retrieved chunks into a numbered context block and append the question.
 
@@ -44,6 +48,8 @@ def build_prompt(query: str, chunks: list[dict[str, Any]]) -> str:
         query: The user's natural-language question.
         chunks: Reranked chunk dicts.  Each must contain ``chunk_id``,
                 ``source``, ``filename``, ``page_number``, and ``text``.
+        max_chars_per_chunk: If set, truncate each chunk's text to this many
+                             characters.  Useful for token budget management.
 
     Returns:
         Formatted user-turn prompt string ready to be sent to the LLM.
@@ -56,7 +62,10 @@ def build_prompt(query: str, chunks: list[dict[str, Any]]) -> str:
             f"file: {chunk['filename']}, "
             f"page: {chunk['page_number']})"
         )
-        context_parts.append(f"{i}. {header}\n{chunk['text']}")
+        text = chunk["text"]
+        if max_chars_per_chunk and len(text) > max_chars_per_chunk:
+            text = text[:max_chars_per_chunk] + "…"
+        context_parts.append(f"{i}. {header}\n{text}")
 
     context_block = "\n\n".join(context_parts)
 

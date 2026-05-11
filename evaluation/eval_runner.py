@@ -74,12 +74,20 @@ async def _run_evaluation() -> None:
     pipeline = RAGPipeline()
 
     # ── 3. Run all queries ─────────────────────────────────────────────────
+    # Token budget: top_k_rerank=3 and max_chars_per_chunk=800 cut prompt tokens
+    # ~50 % vs defaults (5 chunks × full text).  This keeps the daily TPD limit
+    # from being exhausted on a single CI run while preserving retrieval quality.
     print(f"[Eval] Running {len(qa_pairs)} pipeline queries...")
     t0 = time.perf_counter()
     pipeline_results: list[dict] = []
     for i, qa in enumerate(qa_pairs, 1):
         print(f"  [{i:02d}/{len(qa_pairs)}] {qa['question'][:65]}...")
-        result = await pipeline.query(qa["question"], top_k_retrieve=20, top_k_rerank=5)
+        result = await pipeline.query(
+            qa["question"],
+            top_k_retrieve=10,
+            top_k_rerank=3,
+            max_chars_per_chunk=800,
+        )
         pipeline_results.append(result)
     query_elapsed = round((time.perf_counter() - t0) * 1000)
     print(f"[Eval] Queries complete in {query_elapsed} ms")
