@@ -30,13 +30,12 @@ _EVAL_DIR = Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
-# LLM helper — RAGAS 0.4+ InstructorLLM backed by Groq
+# LLM helper — LangchainLLMWrapper(ChatGroq) is the documented RAGAS 0.4.x approach
 # ---------------------------------------------------------------------------
 
 def _build_ragas_llm():
-    import instructor
-    from groq import AsyncGroq
-    from ragas.llms import InstructorLLM
+    from langchain_groq import ChatGroq
+    from ragas.llms import LangchainLLMWrapper
 
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -44,8 +43,8 @@ def _build_ragas_llm():
             "GROQ_API_KEY is not set. "
             "Export it or add it to your .env file before running evals."
         )
-    client = instructor.from_groq(AsyncGroq(api_key=api_key), mode=instructor.Mode.JSON)
-    return InstructorLLM(client=client, model="llama-3.3-70b-versatile", provider="groq")
+    chat_llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=api_key)
+    return LangchainLLMWrapper(chat_llm)
 
 
 
@@ -57,7 +56,7 @@ def _build_ragas_llm():
 async def _run_evaluation() -> None:
     from ragas import EvaluationDataset, SingleTurnSample
     from ragas import evaluate as ragas_evaluate
-    from ragas.metrics.collections import ContextRecall, Faithfulness
+    from ragas.metrics import ContextRecall, Faithfulness
 
     from src.pipeline.rag_pipeline import RAGPipeline
 
