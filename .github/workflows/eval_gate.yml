@@ -1,12 +1,14 @@
-name: Eval Gate
+name: RAGAS Eval Gate
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   eval:
-    name: RAGAS Evaluation Gate
+    name: RAGAS Faithfulness Gate (≥ 0.84)
     runs-on: ubuntu-latest
 
     steps:
@@ -14,53 +16,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── 2. Python ────────────────────────────────────────────────────────
-      - name: Set up Python 3.10
+      # ── 2. Python 3.11 + pip cache ────────────────────────────────────────
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
+          cache: "pip"
 
-      # ── 3. Dependencies ───────────────────────────────────────────────────
+      # ── 3. Install dependencies ───────────────────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Cache indexes (key = hash of all PDFs in data/) ────────────────
-      - name: Cache FAISS + BM25 indexes
-        id: cache-indexes
-        uses: actions/cache@v4
-        with:
-          path: indexes/
-          key: indexes-${{ hashFiles('data/**') }}
-
-      # ── 5. Build indexes on cache miss ────────────────────────────────────
-      - name: Build indexes (cache miss only)
-        if: steps.cache-indexes.outputs.cache-hit != 'true'
-        run: python -m src.ingestion.loader
-
-      # ── 6. Run evaluation ─────────────────────────────────────────────────
+      # ── 4. Run RAGAS evaluation ───────────────────────────────────────────
+      # Indexes are committed to the repo — no build step needed.
+      # EVAL_QUESTIONS_FILE points to eval_questions.json in the repo root.
       - name: Run RAGAS evaluation
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          FAITHFULNESS_THRESHOLD: "0.84"
+          EVAL_QUESTIONS_FILE: "eval_questions.json"
         run: python evaluation/eval_runner.py
 
-      # ── 7. Upload eval results as artifact ────────────────────────────────
+      # ── 5. Upload eval results as artifact ────────────────────────────────
       - name: Upload eval results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-results
+          name: eval-results-${{ github.sha }}
           path: evaluation/eval_results.json
           retention-days: 30
 
-      # ── 8. Post eval scores as PR comment ─────────────────────────────────
+      # ── 6. Post scores as PR comment ──────────────────────────────────────
       - name: Post scores as PR comment
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const FAITH_GATE = 0.84;
             let body = '## FinScope AI — RAGAS Evaluation Results\n\n';
 
             try {
@@ -68,12 +64,26 @@ jobs:
                 fs.readFileSync('evaluation/eval_results.json', 'utf8')
               );
               const pass = (v, t) => v >= t ? '✅ PASS' : '❌ FAIL';
-              body += `| Metric | Score | Status |\n`;
-              body += `|--------|-------|--------|\n`;
-              body += `| Faithfulness | ${results.faithfulness.toFixed(4)} | ${pass(results.faithfulness, 0.80)} |\n`;
-              body += `| Answer Relevancy | ${results.answer_relevancy.toFixed(4)} | ${pass(results.answer_relevancy, 0.75)} |\n`;
-              body += `| Context Recall | ${results.context_recall.toFixed(4)} | ${pass(results.context_recall, 0.70)} |\n`;
-              body += `\n_Evaluated at ${results.timestamp}_`;
+              const icon = results.faithfulness >= FAITH_GATE ? '🟢' : '🔴';
+              body += `${icon} **CI gate: faithfulness ≥ ${FAITH_GATE}**\n\n`;
+              body += `| Metric | Score | Gate | Status |\n`;
+              body += `|--------|------:|-----:|--------|\n`;
+              body += `| Faithfulness | ${results.faithfulness.toFixed(4)} | ≥ ${FAITH_GATE} | ${pass(results.faithfulness, FAITH_GATE)} |\n`;
+              body += `| Answer Relevancy | ${results.answer_relevancy.toFixed(4)} | ≥ 0.75 | ${pass(results.answer_relevancy, 0.75)} |\n`;
+              body += `| Context Recall | ${results.context_recall.toFixed(4)} | ≥ 0.70 | ${pass(results.context_recall, 0.70)} |\n`;
+
+              if (results.per_question && results.per_question.length > 0) {
+                const failing = results.per_question.filter(q => q.faithfulness !== null && q.faithfulness < FAITH_GATE);
+                if (failing.length > 0) {
+                  body += `\n<details><summary>⚠️ ${failing.length} question(s) below faithfulness gate</summary>\n\n`;
+                  failing.forEach(q => {
+                    body += `- **${q.faithfulness?.toFixed(3)}** — ${q.question.slice(0, 90)}${q.question.length > 90 ? '…' : ''}\n`;
+                  });
+                  body += `\n</details>`;
+                }
+              }
+
+              body += `\n\n_Commit \`${context.sha.slice(0, 7)}\` · evaluated at ${results.timestamp}_`;
             } catch (e) {
               body += `⚠️ Could not read eval_results.json: ${e.message}`;
             }

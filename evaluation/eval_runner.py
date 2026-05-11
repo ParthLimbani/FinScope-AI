@@ -96,12 +96,14 @@ async def _run_evaluation() -> None:
 
     from src.pipeline.rag_pipeline import RAGPipeline
 
-    # ── 1. Load golden Q&A ────────────────────────────────────────────────
-    qa_path = _EVAL_DIR / "golden_qa.json"
+    # ── 1. Load Q&A dataset ───────────────────────────────────────────────
+    # EVAL_QUESTIONS_FILE overrides the default (used by CI to load eval_questions.json).
+    _qfile_env = os.getenv("EVAL_QUESTIONS_FILE")
+    qa_path = (_PROJECT_ROOT / _qfile_env) if _qfile_env else (_EVAL_DIR / "golden_qa.json")
     with open(qa_path, encoding="utf-8") as fh:
         qa_pairs: list[dict] = json.load(fh)
 
-    print(f"[Eval] Loaded {len(qa_pairs)} Q&A pairs from {qa_path.name}")
+    print(f"[Eval] Loaded {len(qa_pairs)} Q&A pairs from {qa_path}")
 
     # ── 2. Initialise pipeline ────────────────────────────────────────────
     print("[Eval] Initialising RAG pipeline...")
